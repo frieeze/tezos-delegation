@@ -2,12 +2,7 @@ package store
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"os"
-	"slices"
-	"strings"
-	"time"
+	"database/sql"
 
 	tds "github.com/frieeze/tezos-delegation"
 )
@@ -15,92 +10,92 @@ import (
 type Store interface {
 	Insert(ctx context.Context, ds []tds.Delegation) error
 	GetByYear(ctx context.Context, year string) ([]tds.Delegation, error)
+	Close() error
 }
 
-type fileStore struct {
-	basepath string
+type sqlite struct {
+	db *sql.DB
 }
 
-func (s *fileStore) Insert(ctx context.Context, ds []tds.Delegation) error {
-	slices.SortStableFunc(ds, func(i, j tds.Delegation) int {
-		// sort by timestamp in ascending order
-		return strings.Compare(i.Timestamp, j.Timestamp)
-	})
-
-	return nil
+func NewSqLite(path string) (Store, error) {
+	db, err := sql.Open("sqlite3", path)
+	if err != nil {
+		return nil, err
+	}
+	return &sqlite{
+		db: db,
+	}, nil
 }
 
-func delegationsByYear(ds []tds.Delegation) [][]tds.Delegation {
-	// group delegations by year
-	delegations := [][]tds.Delegation{}
-	years := make(map[string]int)
+func (s *sqlite) Insert(ctx context.Context, ds []tds.Delegation) error {
+	const query = `
+	INSERT INTO delegations (level, delegator, amount, timestamp, id)
+	VALUES (?, ?, ?, ?, ?);
+	`
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	stmt, err := tx.PrepareContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
 	for _, d := range ds {
-		year := d.Timestamp[:4]
-		years[year] = append(years[year], d)
+		_, err = stmt.Exec(ctx, d.Level, d.Delegator, d.Amount, d.Timestamp, d.Id)
+		if err != nil {
+			return err
+		}
 	}
-
-	// convert map to slice
-	var res [][]tds.Delegation
-	for _, v := range years {
-		res = append(res, v)
-	}
-	return res
+	return tx.Commit()
 }
 
-var (
-	errFileEmpty = errors.New("file is empty")
-)
-
-func (s *fileStore) append(path string, content []byte) error {
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE, 0644)
+func (s sqlite) GetByYear(ctx context.Context, year string) ([]tds.Delegation, error) {
+	const query = `
+	SELECT level, delegator, amount, timestamp, id
+	FROM delegations
+	WHERE timestamp LIKE ?
+	ORDER BY timestamp DESC;
+	`
+	rows, err := s.db.QueryContext(ctx, query, year+"%")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer file.Close()
 
-	_, err = file.Write(content)
-	if err != nil {
-		return err
+	var delegations []tds.Delegation
+	for rows.Next() {
+		var d tds.Delegation
+		err = rows.Scan(
+			&d.Level,
+			&d.Delegator,
+			&d.Amount,
+			&d.Timestamp,
+			&d.Id,
+		)
+		if err != nil {
+			return nil, err
+		}
+		delegations = append(delegations, d)
 	}
-	return nil
+	return delegations, nil
 }
 
-func (s fileStore) insert(path string, content []byte) error {
-	return nil
+func (s *sqlite) Close() error {
+	return s.db.Close()
 }
 
-func (s fileStore) fileName(year string) string {
-	return s.basepath + "/" + year + ".csv"
-}
-
-// len("2018-06-30T19:30:27Z") == 20
-const dateSize = 20
-
-func fileLastDate(path string) (time.Time, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return time.Time{}, err
-	}
-	defer file.Close()
-
-	buf := make([]byte, 20)
-	stat, err := file.Stat()
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	// in CSV format the last element is the date
-	// so we need to read the last 20 bytes
-	// +1 offset for the newline
-	offset := stat.Size() - (dateSize + 1)
-	if offset < (dateSize + 1) {
-		return time.Time{}, errFileEmpty
-	}
-
-	_, err = file.ReadAt(buf, offset)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	return time.Parse(time.RFC3339, string(buf))
+func (s *sqlite) createTable() error {
+	const query = `
+	CREATE TABLE IF NOT EXISTS delegations (
+		pk        INTEGER PRIMARY KEY AUTOINCREMENT,
+		id	  TEXT UNIQUE,
+		level     TEXT NOT NULL,
+		delegator TEXT NOT NULL,
+		amount    TEXT NOT NULL,
+		timestamp TEXT NOT NULL
+	);
+	`
+	_, err := s.db.Exec(query)
+	return err
 }
