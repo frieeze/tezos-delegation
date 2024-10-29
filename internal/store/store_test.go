@@ -11,38 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newEmptyDB() (string, error) {
-	file, err := os.CreateTemp("", "tds_test_db")
-	if err != nil {
-		return "", err
-	}
-	return file.Name(), nil
-}
-
-func queryTable(ctx context.Context, db *sql.DB) (string, error) {
-	const query = "SELECT name FROM sqlite_master WHERE type='table';"
-	var table string
-	err := db.QueryRowContext(ctx, query).Scan(&table)
-	return table, err
-}
-
-func Test_NewSqLite(t *testing.T) {
-	path, err := newEmptyDB()
-	require.NoError(t, err)
-	defer os.Remove(path)
-
-	s, err := NewSqLite(path)
-	assert.NoError(t, err)
-	assert.NotNil(t, s)
-
-	table, err := queryTable(context.Background(), s.(*sqlite).DB)
-	require.NoError(t, err)
-	assert.Equal(t, "delegations", table)
-
-	err = s.Close()
-	assert.NoError(t, err)
-}
-
 var (
 	delegations = []tds.Delegation{
 		{
@@ -69,11 +37,19 @@ var (
 	}
 )
 
+func newEmptyDB() (string, error) {
+	file, err := os.CreateTemp("", "tds_test_db")
+	if err != nil {
+		return "", err
+	}
+	return file.Name(), nil
+}
+
 func prepareDB(t *testing.T) (Store, string) {
 	path, err := newEmptyDB()
 	require.NoError(t, err)
 
-	s, err := NewSqLite(path)
+	s, err := NewSqLite(context.Background(), path)
 	require.NoError(t, err)
 
 	err = s.Insert(context.Background(), delegations)
@@ -88,6 +64,30 @@ func cleanupDB(t *testing.T, s Store, path string) {
 
 	err = os.Remove(path)
 	require.NoError(t, err)
+}
+
+func queryTable(ctx context.Context, db *sql.DB) (string, error) {
+	const query = "SELECT name FROM sqlite_master WHERE type='table';"
+	var table string
+	err := db.QueryRowContext(ctx, query).Scan(&table)
+	return table, err
+}
+
+func Test_NewSqLite(t *testing.T) {
+	path, err := newEmptyDB()
+	require.NoError(t, err)
+	defer os.Remove(path)
+
+	s, err := NewSqLite(context.Background(), path)
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
+
+	table, err := queryTable(context.Background(), s.(*sqlite).db)
+	require.NoError(t, err)
+	assert.Equal(t, "delegations", table)
+
+	err = s.Close()
+	assert.NoError(t, err)
 }
 
 func Test_sqlite_Insert(t *testing.T) {

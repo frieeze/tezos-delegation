@@ -45,14 +45,14 @@ var (
 
 func Test_decodeDelegations_ok(t *testing.T) {
 	reader := strings.NewReader(response)
-	ds, err := decodeDelegations(reader)
+	ds, err := decodeDelegations(reader, 3)
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, expected, ds)
 }
 
 func Test_decodeDelegations_error_BadJSON(t *testing.T) {
 	reader := strings.NewReader(`[{"timestamp":"2024-10-29T10:22:25Z","sender":{"address":`)
-	_, err := decodeDelegations(reader)
+	_, err := decodeDelegations(reader, 1)
 	assert.Error(t, err)
 }
 
@@ -78,29 +78,28 @@ func Test_getDelegations_ok(t *testing.T) {
 		assert.Empty(t, r.URL.Query().Get("limit"))
 	})
 	defer serv.Close()
-	ds, err := getDelegations(context.Background(), serv.URL, GetOpts{})
+	ds, err := getDelegations(context.Background(), serv.URL, getOpts{})
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, expected, ds)
 }
 
 func Test_getDelegation_Params(t *testing.T) {
 	var (
-		date    = time.Date(2024, 10, 29, 10, 22, 25, 0, time.UTC)
-		dateStr = "2024-10-29T10:22:25Z"
+		date = "2024-10-29T10:22:25Z"
 	)
 
 	serv := httpTestServer("[]", 200, func(r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "timestamp,sender,amount,level,id", r.URL.Query().Get("select"))
-		assert.Equal(t, dateStr, r.URL.Query().Get("timestamp.ge"))
-		assert.Equal(t, dateStr, r.URL.Query().Get("timestamp.lt"))
+		assert.Equal(t, date, r.URL.Query().Get("timestamp.ge"))
+		assert.Equal(t, date, r.URL.Query().Get("timestamp.lt"))
 		assert.Equal(t, "1000", r.URL.Query().Get("limit"))
 	})
 	defer serv.Close()
 
-	opts := GetOpts{
-		TsLt:  date,
+	opts := getOpts{
 		TsGe:  date,
+		TsLt:  date,
 		Limit: 1000,
 	}
 	del, err := getDelegations(context.Background(), serv.URL, opts)
@@ -111,12 +110,12 @@ func Test_getDelegation_Params(t *testing.T) {
 func Test_getDelegations_error_HttpCode(t *testing.T) {
 	serv := httpTestServer(response, 400, nil)
 	defer serv.Close()
-	_, err := getDelegations(context.Background(), serv.URL, GetOpts{})
+	_, err := getDelegations(context.Background(), serv.URL, getOpts{})
 	assert.ErrorIs(t, err, ErrInvalidStatusCode)
 }
 
 func Test_getDelegations_error_BadURL(t *testing.T) {
-	_, err := getDelegations(context.Background(), "", GetOpts{})
+	_, err := getDelegations(context.Background(), "", getOpts{})
 	assert.Error(t, err)
 }
 
@@ -151,12 +150,23 @@ func (m *mockStore) Close() error {
 
 func Test_NewLive(t *testing.T) {
 	storage := &mockStore{}
-	s := NewLive("http://localhost:8080", 10*time.Second, storage)
+	s := NewLive("", 10*time.Second, storage)
 	assert.NotNil(t, s)
 	require.IsType(t, &live{}, s)
 
 	l := s.(*live)
-	assert.Equal(t, "http://localhost:8080", l.url)
+	assert.Equal(t, defaultApi, l.api)
 	assert.Equal(t, 10*time.Second, l.interval)
 	assert.Equal(t, storage, l.store)
+}
+
+func Test_Live_Sync(t *testing.T) {
+	storage := &mockStore{}
+	httpServ := httpTestServer(response, 200, nil)
+	s := NewLive(httpServ.URL, 10*time.Second, storage)
+
+	storage.On("Insert", mock.Anything, expected).Return(nil)
+
+	err := s.Sync(context.Background(), "", "")
+	assert.NoError(t, err)
 }

@@ -17,20 +17,20 @@ type Store interface {
 }
 
 type sqlite struct {
-	*sql.DB
+	db *sql.DB
 }
 
-func NewSqLite(path string) (Store, error) {
+func NewSqLite(ctx context.Context, path string) (Store, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, err
 	}
 
 	store := &sqlite{
-		db,
+		db: db,
 	}
 
-	err = store.createTable()
+	err = store.createTable(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -39,11 +39,14 @@ func NewSqLite(path string) (Store, error) {
 }
 
 func (s *sqlite) Insert(ctx context.Context, ds []tds.Delegation) error {
+	if len(ds) == 0 {
+		return nil
+	}
 	const query = `
 	INSERT INTO delegations (level, delegator, amount, timestamp, id)
 	VALUES (?, ?, ?, ?, ?);
 	`
-	tx, err := s.DB.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
@@ -74,7 +77,7 @@ func (s sqlite) GetByYear(ctx context.Context, year string) ([]tds.Delegation, e
 	WHERE timestamp LIKE ?
 		ORDER BY timestamp DESC;
 		`
-	rows, err := s.DB.QueryContext(ctx, query, year+"%")
+	rows, err := s.db.QueryContext(ctx, query, year+"%")
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +106,7 @@ func (s sqlite) Length(ctx context.Context) (int, error) {
 	FROM delegations;
 	`
 	var count int
-	err := s.DB.QueryRowContext(ctx, query).Scan(&count)
+	err := s.db.QueryRowContext(ctx, query).Scan(&count)
 	return count, err
 }
 func (s sqlite) LastDelegation(ctx context.Context) (tds.Delegation, error) {
@@ -114,7 +117,7 @@ func (s sqlite) LastDelegation(ctx context.Context) (tds.Delegation, error) {
 	LIMIT 1;
 	`
 	var d tds.Delegation
-	err := s.DB.QueryRowContext(ctx, query).Scan(
+	err := s.db.QueryRowContext(ctx, query).Scan(
 		&d.Level,
 		&d.Delegator,
 		&d.Amount,
@@ -125,10 +128,10 @@ func (s sqlite) LastDelegation(ctx context.Context) (tds.Delegation, error) {
 }
 
 func (s *sqlite) Close() error {
-	return s.DB.Close()
+	return s.db.Close()
 }
 
-func (s *sqlite) createTable() error {
+func (s *sqlite) createTable(ctx context.Context) error {
 	const query = `
 	CREATE TABLE IF NOT EXISTS delegations (
 		pk        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,6 +142,6 @@ func (s *sqlite) createTable() error {
 		timestamp TEXT NOT NULL
 	);
 	`
-	_, err := s.DB.Exec(query)
+	_, err := s.db.ExecContext(ctx, query)
 	return err
 }
