@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
 
 	tds "github.com/frieeze/tezos-delegation"
-	"github.com/frieeze/tezos-delegation/store"
+	"github.com/frieeze/tezos-delegation/internal/store"
 )
 
 type Syncer interface {
@@ -38,7 +40,10 @@ type live struct {
 func (l *live) Sync(ctx context.Context) error {
 	l.ctx, l.cancel = context.WithCancel(ctx)
 	l.ticker = time.NewTicker(l.interval)
-
+	err := l.sync()
+	if err != nil {
+		return err
+	}
 	go func() {
 		for {
 			select {
@@ -62,7 +67,7 @@ func (l live) Stop() {
 func (l live) sync() error {
 	delegations, err := getDelegations(l.ctx, l.url, GetOpts{
 		// Get delegations from the last interval with 20% overlap
-		TsGe: time.Now().Sub(l.interval + l.interval/5).Format("2006-01-02T15:04:05Z"),
+		TsGe: time.Now().Add(-(l.interval + l.interval/5)),
 	})
 	if err != nil {
 		return err
@@ -70,7 +75,7 @@ func (l live) sync() error {
 	if len(delegations) == 0 {
 		return nil
 	}
-	return l.store.InsertBatch(l.ctx, delegations)
+	return l.store.Insert(l.ctx, delegations)
 }
 
 type GetOpts struct {
@@ -82,16 +87,6 @@ type GetOpts struct {
 var (
 	ErrInvalidStatusCode = errors.New("invalid status code")
 )
-
-type responseDelegation struct {
-	Timestamp string `json:"timestamp"`
-	Sender    struct {
-		Address string `json:"address"`
-	} `json:"sender"`
-	Amount string `json:"amount"`
-	Level  int    `json:"level"`
-	Id     int    `json:"id"`
-}
 
 func getDelegations(ctx context.Context, url string, opts GetOpts) ([]tds.Delegation, error) {
 	req, err := http.NewRequestWithContext(
@@ -107,13 +102,13 @@ func getDelegations(ctx context.Context, url string, opts GetOpts) ([]tds.Delega
 	q := req.URL.Query()
 	q.Add("select", "timestamp,sender,amount,level,id")
 	if !opts.TsGe.IsZero() {
-		q.Add("timastamp.ge", opts.TsGe.Format("2006-01-02T15:04:05Z"))
+		q.Add("timestamp.ge", opts.TsGe.Format("2006-01-02T15:04:05Z"))
 	}
 	if !opts.TsLt.IsZero() {
-		q.Add("timastamp.lt", opts.TsLt.Format("2006-01-02T15:04:05Z"))
+		q.Add("timestamp.lt", opts.TsLt.Format("2006-01-02T15:04:05Z"))
 	}
 	if opts.Limit > 0 {
-		q.Add("limit", string(opts.Limit))
+		q.Add("limit", strconv.Itoa(opts.Limit))
 	}
 	req.URL.RawQuery = q.Encode()
 
@@ -123,20 +118,39 @@ func getDelegations(ctx context.Context, url string, opts GetOpts) ([]tds.Delega
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, ErrInvalidStatusCode
+		return nil, fmt.Errorf("%w : %d", ErrInvalidStatusCode, resp.StatusCode)
 	}
 
+	return decodeDelegations(resp.Body)
+}
+
+type responseDelegation struct {
+	Timestamp string `json:"timestamp"`
+	Sender    struct {
+		Address string `json:"address"`
+	} `json:"sender"`
+	Amount int `json:"amount"`
+	Level  int `json:"level"`
+	Id     int `json:"id"`
+}
+
+func decodeDelegations(raw io.Reader) ([]tds.Delegation, error) {
 	var delegations []tds.Delegation
-	decoder := json.NewDecoder(resp.Body)
-	for decoder.More() {
+	dec := json.NewDecoder(raw)
+	// read open bracket
+	_, err := dec.Token()
+	if err != nil {
+		return nil, err
+	}
+	for dec.More() {
 		var d responseDelegation
-		if err := decoder.Decode(&d); err != nil {
+		if err := dec.Decode(&d); err != nil {
 			return nil, err
 		}
 		delegations = append(delegations, tds.Delegation{
 			Timestamp: d.Timestamp,
 			Delegator: d.Sender.Address,
-			Amount:    d.Amount,
+			Amount:    strconv.Itoa(d.Amount),
 			Level:     strconv.Itoa(d.Level),
 			Id:        strconv.Itoa(d.Id),
 		})
