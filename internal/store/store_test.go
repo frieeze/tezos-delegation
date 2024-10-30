@@ -37,18 +37,9 @@ var (
 	}
 )
 
-func newEmptyDB() (string, error) {
-	file, err := os.CreateTemp("", "tds_test_db")
-	if err != nil {
-		return "", err
-	}
-	return file.Name(), nil
-}
+const path = "test.db"
 
 func prepareDB(t *testing.T) (Store, string) {
-	path, err := newEmptyDB()
-	require.NoError(t, err)
-
 	s, err := NewSqLite(context.Background(), path)
 	require.NoError(t, err)
 
@@ -74,27 +65,28 @@ func queryTable(ctx context.Context, db *sql.DB) (string, error) {
 }
 
 func Test_NewSqLite(t *testing.T) {
-	path, err := newEmptyDB()
-	require.NoError(t, err)
-	defer os.Remove(path)
-
 	s, err := NewSqLite(context.Background(), path)
 	assert.NoError(t, err)
 	assert.NotNil(t, s)
+	defer cleanupDB(t, s, path)
 
 	table, err := queryTable(context.Background(), s.(*sqlite).db)
 	require.NoError(t, err)
 	assert.Equal(t, "delegations", table)
+}
 
-	err = s.Close()
-	assert.NoError(t, err)
+func length(db *sql.DB) (int, error) {
+	const query = "SELECT COUNT(*) FROM delegations;"
+	var count int
+	err := db.QueryRow(query).Scan(&count)
+	return count, err
 }
 
 func Test_sqlite_Insert(t *testing.T) {
 	s, path := prepareDB(t)
 	defer cleanupDB(t, s, path)
 
-	count, err := s.Length(context.Background())
+	count, err := length(s.(*sqlite).db)
 	require.NoError(t, err)
 	assert.Equal(t, len(delegations), count)
 
@@ -102,7 +94,7 @@ func Test_sqlite_Insert(t *testing.T) {
 	err = s.Insert(context.Background(), delegations)
 	assert.NoError(t, err)
 
-	count, err = s.Length(context.Background())
+	count, err = length(s.(*sqlite).db)
 	require.NoError(t, err)
 	assert.Equal(t, len(delegations), count)
 }
@@ -123,5 +115,27 @@ func Test_sqlite_LastDelegation(t *testing.T) {
 
 	d, err := s.LastDelegation(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, delegations[2], d)
+	assert.Equal(t, delegations[2], *d)
+}
+
+func Test_sqlite_LastDelegation_Empty(t *testing.T) {
+	s, err := NewSqLite(context.Background(), path)
+	require.NoError(t, err)
+	defer cleanupDB(t, s, path)
+
+	d, err := s.LastDelegation(context.Background())
+	assert.NoError(t, err)
+	assert.Nil(t, d)
+}
+
+func Test_sqlite_Drop(t *testing.T) {
+	s, path := prepareDB(t)
+	defer cleanupDB(t, s, path)
+
+	err := s.Empty(context.Background())
+	require.NoError(t, err)
+
+	count, err := length(s.(*sqlite).db)
+	require.NoError(t, err)
+	assert.Zero(t, count)
 }
