@@ -74,8 +74,8 @@ func (l *Live) Sync(ctx context.Context, from string) error {
 	if err != nil {
 		return err
 	}
-	l.stopped = make(chan bool, 1)
 	go func() {
+		l.stopped = make(chan bool, 1)
 		defer func() { l.stopped <- true }()
 		for {
 			select {
