@@ -13,7 +13,7 @@ import (
 	"github.com/frieeze/tezos-delegation/internal/handlers"
 	"github.com/frieeze/tezos-delegation/internal/middleware"
 	"github.com/frieeze/tezos-delegation/internal/store"
-	"github.com/frieeze/tezos-delegation/internal/sync"
+	"github.com/frieeze/tezos-delegation/internal/xzt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
@@ -82,7 +82,7 @@ func main() {
 
 	if cfg.history {
 		log.Info().Msg("start history sync")
-		history := sync.NewHistory(cfg.api, store)
+		history := xzt.NewHistory(cfg.api, store)
 		defer history.Stop()
 		go func() {
 			err = history.Sync(ctx, "", "")
@@ -94,7 +94,7 @@ func main() {
 	}
 
 	log.Info().Msg("start live sync")
-	syncer := sync.NewLive(cfg.api, cfg.syncInterval, store)
+	syncer := xzt.NewLive(cfg.api, cfg.syncInterval, store)
 	defer syncer.Stop()
 
 	err = syncer.Sync(ctx, "")
