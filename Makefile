@@ -8,7 +8,7 @@ dev:
 	@go run cmd/tds/main.go -dev -debug
 
 test:
-	@go test -coverprofile /tmp/tds-go-coverage -v ./...
+	@go test -coverprofile /tmp/tds-go-coverage -timeout 10s -v ./...
 
 empty:
 	@go run cmd/db/main.go -empty
