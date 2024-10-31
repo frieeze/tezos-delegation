@@ -97,8 +97,7 @@ Returns the delegations of the current year, ordered by descending timestamps
       "delegator": "tz1P9h5zJoaho148uXCv1iMsum76Rr9LJbGg",
       "amount": "109795184",
       "level": "6993439"
-    },
-    ....
+    }
   ]
 }
 ```
