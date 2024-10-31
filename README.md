@@ -18,9 +18,9 @@ Because this is a CGO enabled package, you are required to set the environment v
 
 Makefile contains a list of default use cases
 
-```Make
+```make
 build:
-   # build the project to ./bin/tds
+    build the project to ./bin/tds
 run:
     starts the built project with default configuration
 dev:
@@ -45,8 +45,6 @@ $ go run ./cmd/tds -h
             path to the database file (default "delegations.db")
     -debug
             enable debug logging
-    -dev
-            enable development mode
     -nohistory
             disable history sync
     -port int

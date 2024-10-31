@@ -19,7 +19,6 @@ import (
 )
 
 type config struct {
-	dev          bool
 	debug        bool
 	dbPath       string
 	history      bool
@@ -29,7 +28,6 @@ type config struct {
 }
 
 func loadConfig() (config, error) {
-	dev := flag.Bool("dev", false, "enable development mode")
 	debug := flag.Bool("debug", false, "enable debug logging")
 	dbPath := flag.String("db", "delegations.db", "path to the database file")
 	noHistory := flag.Bool("nohistory", false, "disable history sync")
@@ -45,7 +43,6 @@ func loadConfig() (config, error) {
 	}
 
 	return config{
-		dev:          *dev,
 		debug:        *debug,
 		dbPath:       *dbPath,
 		history:      !*noHistory,
@@ -61,12 +58,10 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load config")
 	}
-	if cfg.dev {
-		log = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	}
 
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	if cfg.debug {
+		log = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)

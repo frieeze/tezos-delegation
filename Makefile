@@ -5,7 +5,7 @@ run:
 	@./bin/tds
 
 dev:
-	@go run cmd/tds/main.go -dev -debug
+	@go run cmd/tds/main.go -debug
 
 test:
 	@go test -coverprofile /tmp/tds-go-coverage -timeout 10s -v ./...
