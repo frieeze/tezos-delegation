@@ -13,7 +13,7 @@ import (
 	"github.com/frieeze/tezos-delegation/internal/handlers"
 	"github.com/frieeze/tezos-delegation/internal/middleware"
 	"github.com/frieeze/tezos-delegation/internal/store"
-	"github.com/frieeze/tezos-delegation/internal/xzt"
+	"github.com/frieeze/tezos-delegation/internal/xtz"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
@@ -82,7 +82,7 @@ func main() {
 
 	if cfg.history {
 		log.Info().Msg("start history sync")
-		history := xzt.NewHistory(cfg.api, store)
+		history := xtz.NewHistory(cfg.api, store)
 		defer history.Stop()
 		go func() {
 			err = history.Sync(ctx, "", "")
@@ -94,7 +94,7 @@ func main() {
 	}
 
 	log.Info().Msg("start live sync")
-	syncer := xzt.NewLive(cfg.api, cfg.syncInterval, store)
+	syncer := xtz.NewLive(cfg.api, cfg.syncInterval, store)
 	defer syncer.Stop()
 
 	err = syncer.Sync(ctx, "")
@@ -106,7 +106,7 @@ func main() {
 	log.Info().Int("port", cfg.port).Msg("start http server")
 	h := handlers.Handlers{Store: store}
 	router := http.NewServeMux()
-	router.Handle("/xzt/", http.StripPrefix("/xzt", h.AddXTZRoutes()))
+	router.Handle("/xtz/", http.StripPrefix("/xtz", h.AddXTZRoutes()))
 
 	use := middleware.Use(
 		hlog.RequestIDHandler("req_id", "Request-Id"),

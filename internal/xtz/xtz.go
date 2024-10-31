@@ -1,4 +1,4 @@
-package xzt
+package xtz
 
 import (
 	"context"
@@ -27,6 +27,7 @@ func NewLive(api string, interval time.Duration, s store.Store) *Live {
 	}
 }
 
+// Live will sync the delegations every interval
 type Live struct {
 	api      string
 	interval time.Duration
@@ -44,6 +45,7 @@ type Live struct {
 const dateFormat = "2006-01-02T15:04:05Z"
 
 var (
+	// ErrNoInterval is returned when the interval is not set
 	ErrNoInterval = errors.New("no interval")
 )
 
@@ -127,6 +129,7 @@ func (l *Live) sync() error {
 	return l.store.Insert(l.ctx, delegations)
 }
 
+// History will sync the delegations inside a given time range
 type History struct {
 	api   string
 	store store.Store
@@ -150,6 +153,7 @@ func NewHistory(api string, s store.Store) *History {
 // First delegation event from tzkt's API
 const firstDelegation = "2018-06-30T19:30:27Z"
 
+// Stop will stop the syncing
 func (h *History) Stop() {
 	if h.ctx == nil {
 		return
@@ -241,6 +245,7 @@ type getOpts struct {
 }
 
 var (
+	// ErrInvalidStatusCode is returned when the status code is 300 or higher
 	ErrInvalidStatusCode = errors.New("invalid status code")
 )
 
@@ -291,7 +296,7 @@ type responseDelegation struct {
 	} `json:"sender"`
 	Amount int `json:"amount"`
 	Level  int `json:"level"`
-	Id     int `json:"id"`
+	ID     int `json:"id"`
 }
 
 // capacity is used to preallocate the slice
@@ -315,7 +320,7 @@ func decodeDelegations(raw io.Reader, capacity int) ([]tds.Delegation, error) {
 			Delegator: d.Sender.Address,
 			Amount:    strconv.Itoa(d.Amount),
 			Level:     strconv.Itoa(d.Level),
-			Id:        strconv.Itoa(d.Id),
+			ID:        strconv.Itoa(d.ID),
 		})
 	}
 	return delegations, nil

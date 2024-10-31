@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/frieeze/tezos-delegation/internal/store"
-	"github.com/frieeze/tezos-delegation/internal/xzt"
+	"github.com/frieeze/tezos-delegation/internal/xtz"
 	"github.com/rs/zerolog"
 )
 
@@ -76,7 +76,7 @@ func main() {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	log.Info().Msg("start history sync")
-	history := xzt.NewHistory(cfg.api, store)
+	history := xtz.NewHistory(cfg.api, store)
 	defer history.Stop()
 	go func() {
 		err = history.Sync(ctx, "", "")

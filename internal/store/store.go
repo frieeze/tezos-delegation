@@ -81,7 +81,7 @@ func (s *sqlite) Insert(ctx context.Context, ds []tds.Delegation) error {
 	defer stmt.Close()
 
 	for _, d := range ds {
-		_, err = stmt.ExecContext(ctx, d.Level, d.Delegator, d.Amount, d.Timestamp, d.Id)
+		_, err = stmt.ExecContext(ctx, d.Level, d.Delegator, d.Amount, d.Timestamp, d.ID)
 		if err != nil && !isUniqueViolation(err) {
 			return err
 		}
@@ -115,7 +115,7 @@ func (s sqlite) GetByYear(ctx context.Context, year string) ([]tds.Delegation, e
 			&d.Delegator,
 			&d.Amount,
 			&d.Timestamp,
-			&d.Id,
+			&d.ID,
 		)
 		if err != nil {
 			return nil, err
@@ -139,7 +139,7 @@ func (s sqlite) LastDelegation(ctx context.Context) (*tds.Delegation, error) {
 		&d.Delegator,
 		&d.Amount,
 		&d.Timestamp,
-		&d.Id,
+		&d.ID,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil

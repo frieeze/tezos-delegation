@@ -1,4 +1,4 @@
-package xzt
+package xtz
 
 import (
 	"context"
@@ -23,21 +23,21 @@ var (
 			Delegator: "tz1L6FGN8F2o3j8CsGCoktiFDdDLkbECEDms",
 			Amount:    "13814013",
 			Level:     "6976378",
-			Id:        "1401626186219520",
+			ID:        "1401626186219520",
 		},
 		{
 			Timestamp: "2024-10-29T10:10:00Z",
 			Delegator: "tz29LqGEjCrSR1HFhzMoujZvXi5Rgdhxe7mP",
 			Amount:    "2548493",
 			Level:     "6976305",
-			Id:        "1401610442899456",
+			ID:        "1401610442899456",
 		},
 		{
 			Timestamp: "2024-10-29T10:09:00Z",
 			Delegator: "tz29LqGEjCrSR1HFhzMoujZvXi5Rgdhxe7mP",
 			Amount:    "2548751",
 			Level:     "6976299",
-			Id:        "1401609161539584",
+			ID:        "1401609161539584",
 		},
 	}
 )

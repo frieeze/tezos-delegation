@@ -3,6 +3,8 @@ package handlers
 import (
 	"net/http"
 	"time"
+
+	tds "github.com/frieeze/tezos-delegation"
 )
 
 // AddXTZRoutes adds all the routes for the XTZ API
@@ -30,9 +32,13 @@ func (h *Handlers) Delegations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// render delegations
-	err = writeJSON(w, delegations)
+	err = writeJSON(w, delegationResponse{Data: delegations})
 	if err != nil {
 		writeError(w, r, err, http.StatusInternalServerError)
 		return
 	}
+}
+
+type delegationResponse struct {
+	Data []tds.Delegation `json:"data"`
 }

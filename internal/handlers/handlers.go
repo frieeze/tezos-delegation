@@ -13,7 +13,7 @@ type Handlers struct {
 	Store store.Store
 }
 
-type ErrorResponse struct {
+type errorResponse struct {
 	Error string `json:"error"`
 	Code  int    `json:"code"`
 }
@@ -22,7 +22,7 @@ type ErrorResponse struct {
 func writeError(w http.ResponseWriter, r *http.Request, err error, code int) {
 	log.Ctx(r.Context()).Error().Err(err).Str("path", r.URL.Path).Msg("request failed")
 	w.WriteHeader(code)
-	writeJSON(w, ErrorResponse{Error: err.Error(), Code: code})
+	writeJSON(w, errorResponse{Error: err.Error(), Code: code})
 
 }
 
