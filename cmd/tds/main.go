@@ -109,6 +109,7 @@ func main() {
 	router.Handle("/xzt/", http.StripPrefix("/xzt", h.AddXTZRoutes()))
 
 	use := middleware.Use(
+		hlog.RequestIDHandler("req_id", "Request-Id"),
 		middleware.Logger(),
 		hlog.NewHandler(log),
 	)

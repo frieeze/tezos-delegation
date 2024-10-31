@@ -107,7 +107,7 @@ func (s sqlite) GetByYear(ctx context.Context, year string) ([]tds.Delegation, e
 		return nil, err
 	}
 
-	var delegations []tds.Delegation
+	var delegations = []tds.Delegation{}
 	for rows.Next() {
 		var d tds.Delegation
 		err = rows.Scan(

@@ -109,6 +109,16 @@ func Test_sqlite_GetByYear(t *testing.T) {
 	assert.Equal(t, delegations[1], ds[0])
 }
 
+func Test_sqlite_GetByYear_Empty(t *testing.T) {
+	s, path := prepareDB(t)
+	defer cleanupDB(t, s, path)
+
+	ds, err := s.GetByYear(context.Background(), "2000")
+	require.NoError(t, err)
+	require.NotNil(t, ds)
+	assert.Len(t, ds, 0)
+}
+
 func Test_sqlite_LastDelegation(t *testing.T) {
 	s, path := prepareDB(t)
 	defer cleanupDB(t, s, path)
